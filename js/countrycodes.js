@@ -41,6 +41,7 @@ var IOC_TABLE = {
 	'CHA': 'Chad',
 	'CHI': 'Chile',
 	'CHN': 'China',
+	'CIV': 'Ivory Coast',
 	'CMR': 'Cameroon',
 	'COK': 'Cook Islands',
 	'COL': 'Colombia',
