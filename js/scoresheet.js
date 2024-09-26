@@ -37,6 +37,30 @@ function _layout(games, col_count, notes) {
 	games.forEach(function(game) {
 		var max_table = table_idx;
 		var max_col = 0;
+
+		var mark_col_start = undefined;
+		var mark_col_end = undefined;
+		var mark_row_start = undefined;
+		var mark_row_end = undefined;
+		var mark_table = undefined;
+
+		var _finish_marks = function() {
+			cells.push({
+				type: 'mark-circle',
+				col: mark_col_start,
+				row: mark_row_start,
+				width: (mark_col_end - mark_col_start + 1),
+				height: (mark_row_end - mark_row_start + 1),
+				table: mark_table,
+			});
+
+			mark_col_start = undefined;
+			mark_col_end = undefined;
+			mark_row_start = undefined;
+			mark_row_end = undefined;
+			mark_table = undefined;
+		};
+
 		game.cells.forEach(function(cell) {
 			var cell_width = (typeof cell.width == 'number') ? cell.width : 1;
 			var rightmost_col = cell.col + cell_width - 1;
@@ -54,6 +78,31 @@ function _layout(games, col_count, notes) {
 				max_col = Math.max(max_col, rightmost_col);
 			}
 			cells.push(cell);
+
+			if (cell.mark) {
+				if ((mark_table !== undefined) && ((mark_table !== cell.table) || (mark_col_start !== cell.col))) {
+					_finish_marks();
+				}
+
+				var cell_row_end = cell.type === 'vertical-text' ? 3 : cell.row;
+				var cell_row_start = cell.type === 'vertical-text' ? 0 : cell.row;
+				if (mark_col_start === undefined) {
+					// First time
+					mark_row_start = cell_row_start;
+					mark_row_end = cell_row_end;
+					mark_col_start = cell.col;
+					mark_col_end = max_col;
+					mark_table = cell.table;
+				} else {
+					// Extend circle (same column)
+					mark_row_start = Math.min(mark_row_start, cell_row_start);
+					mark_row_end = Math.max(mark_row_end, cell_row_end);
+					mark_col_start = Math.min(mark_col_start, cell.col);
+					mark_col_end = Math.max(mark_col_end, cell.col);
+				}
+			} else if (mark_col_start !== undefined) {
+				_finish_marks();
+			}
 		});
 
 		if (game.circle && game.circle != 'suppressed') {
@@ -181,6 +230,7 @@ function _after_injuries(s, press) {
 			col: si.cell.col,
 			row: ((si.cell.row < 2) ? 2.5 : 0.5),
 			val: utils.duration_secs(si.press.timestamp, press.timestamp),
+			mark: true,
 		});
 	});
 	s.scoresheet_injuries = [];
@@ -305,6 +355,7 @@ function parse_match(state, col_count) {
 				row: 2 * press.team_id + press.player_id,
 				val: calc.press_char(s, press),
 				press_type: press.type,
+				mark: true,
 			});
 			s.scoresheet_game.col_idx++;
 			break;
@@ -323,6 +374,7 @@ function parse_match(state, col_count) {
 				row: 2 * press.team_id + press.player_id,
 				val: calc.press_char(s, press),
 				press_type: press.type,
+				mark: true,
 			};
 			s.scoresheet_game.cells.push(cell);
 			s.scoresheet_game.col_idx++;
@@ -352,6 +404,7 @@ function parse_match(state, col_count) {
 					row: 1,
 					col: s.scoresheet_game.col_idx,
 					val: calc.press_char(s, press),
+					mark: true,
 				});
 				s.scoresheet_game.col_idx++;
 			}
@@ -368,6 +421,7 @@ function parse_match(state, col_count) {
 						row: [1, 0, 3, 2][prev_cell.row],
 						col: prev_cell.col,
 						val: calc.press_char(s, press),
+						mark: true,
 					});
 					break;
 				}
@@ -382,6 +436,7 @@ function parse_match(state, col_count) {
 				row: row,
 				col: s.scoresheet_game.col_idx,
 				val: calc.press_char(s, press),
+				mark: true,
 			});
 			s.scoresheet_game.col_idx++;
 			break;
@@ -401,6 +456,7 @@ function parse_match(state, col_count) {
 						row: row,
 						col: prev_cell.col,
 						val: calc.press_char(s, press),
+						mark: true,
 					});
 					found = true;
 					break;
@@ -422,6 +478,7 @@ function parse_match(state, col_count) {
 				row: 2 * press.team_id + press.player_id,
 				col: s.scoresheet_game.col_idx,
 				val: calc.press_char(s, press),
+				mark: true,
 			});
 			s.scoresheet_game.col_idx++;
 			break;
@@ -460,6 +517,7 @@ function parse_match(state, col_count) {
 				col: s.scoresheet_game.col_idx,
 				val: calc.press_char(s, press),
 				_suspension_timestamp: press.timestamp,
+				mark: true,
 			});
 			s.scoresheet_game.col_idx++;
 			break;
@@ -475,6 +533,7 @@ function parse_match(state, col_count) {
 					col: prev_cell.col,
 					row: 2.5,
 					val: utils.duration_secs(prev_cell._suspension_timestamp, press.timestamp),
+					mark: true,
 				});
 				break;
 			}
@@ -499,6 +558,16 @@ function parse_match(state, col_count) {
 			if ((s.scoresheet_game.serving_team !== null) || press.resumed) {
 				_loveall(s, s.game, s.scoresheet_game, {editmode_related: true});
 			}
+			break;
+		case 'editmode_switch-sides':
+			_clean_editmode(s.scoresheet_game);
+			s.scoresheet_game.cells.push({
+				col: s.scoresheet_game.col_idx,
+				type: 'editmode-sign',
+				editmode_related: true,
+			});
+			var team_id = (s.game.start_team1_left == (press.side === 'left')) ? 0 : 1;
+			s.scoresheet_game.servers[team_id] = 1 - s.scoresheet_game.servers[team_id];
 			break;
 		case 'editmode_set-finished_games':
 			s.scoresheet_games = s.match.finished_games.map(function(fgame, i) {
@@ -569,6 +638,30 @@ function parse_match(state, col_count) {
 	return _layout(s.scoresheet_games, col_count, notes);
 }
 
+function _draw_mark_circle(container, cell, cell_width, cell_height, cols_left, table_top) {
+	var rx = cell.width * cell_width / 2;
+	var ry = cell.height * cell_height / 2;
+
+	var cx = cols_left + cell.col * cell_width + rx;
+	var cy = table_top + cell.row * cell_height + ry;
+	if (cell.height === 1 && cell.width === 1) {
+		var max_dimension = Math.max(rx, ry);
+		ry = max_dimension;
+		rx = max_dimension;
+	} else {
+		rx += 0.2 * cell_width;
+		ry += 0.2 * cell_width;
+	}
+
+	_svg_el('ellipse', {
+		'class': 'table_game_result',
+		'cx': cx,
+		'rx': rx,
+		'cy': cy,
+		'ry': ry,
+	}, container);
+}
+
 function sheet_render(s, svg) {
 	function _text(search, str) {
 		if (str !== 0 && !str) {
@@ -602,6 +695,9 @@ function sheet_render(s, svg) {
 	_text('.scoresheet_date_value',
 		s.metadata.start ? utils.human_date_str(s, s.metadata.start) : (
 		s.setup.date || utils.human_date_str(s, Date.now())));
+	if (s.setup.scheduled_time_str && s.setup.scheduled_time_str != '00:00') {
+		_text('.scoresheet_scheduled_time_value', s.setup.scheduled_time_str);
+	}
 
 	_text('.scoresheet_court_id', compat.courtnum(s.match.court_id ? s.match.court_id : s.setup.court_id));
 	_text('.scoresheet_umpire_name', s.match.umpire_name ? s.match.umpire_name : s.setup.umpire_name);
@@ -806,6 +902,7 @@ function sheet_render(s, svg) {
 			}, t);
 			break;
 		case 'circle':
+			// score circle
 			var cx = cols_left + cell.col * cell_width + cell.width * cell_width / 2;
 			var cy = table_top + table_height / 2;
 			var rx = 1.8 * cell_width / 2;
@@ -895,6 +992,10 @@ function sheet_render(s, svg) {
 				'class': 'editmode-sign',
 				'd': path_data,
 			}, t);
+			break;
+		case 'mark-circle':
+			// Circle around special marks
+			_draw_mark_circle(t, cell, cell_width, cell_height, cols_left, table_top);
 			break;
 		case 'score':
 			/* falls through */

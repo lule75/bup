@@ -8,6 +8,9 @@ var _it = tutils._it;
 var DOUBLES_SETUP = tutils.DOUBLES_SETUP;
 var DOUBLES_TEAM_SETUP = tutils.DOUBLES_TEAM_SETUP;
 var DOUBLES_TEAM_SETUP_AWAY_FIRST = tutils.DOUBLES_TEAM_SETUP_AWAY_FIRST;
+const {
+	DOUBLES_SETUP_5x11
+} = tutils;
 var SINGLES_SETUP = tutils.SINGLES_SETUP;
 var SINGLES_TEAM_SETUP = tutils.SINGLES_TEAM_SETUP;
 var SINGLES_TEAM_SETUP_AWAY_FIRST = tutils.SINGLES_TEAM_SETUP_AWAY_FIRST;
@@ -3212,8 +3215,6 @@ _describe('pronunciation', function() {
 	_it('5x11 end-of game pronunciation', function() {
 		var SINGLES_SETUP_5x11 = bup.utils.deep_copy(SINGLES_SETUP);
 		SINGLES_SETUP_5x11.counting = '5x11_15';
-		var DOUBLES_SETUP_5x11 = bup.utils.deep_copy(DOUBLES_SETUP);
-		DOUBLES_SETUP_5x11.counting = '5x11_15';
 		var SINGLES_TEAM_SETUP_5x11 = bup.utils.deep_copy(SINGLES_TEAM_SETUP);
 		SINGLES_TEAM_SETUP_5x11.counting = '5x11_15';
 		var DOUBLES_TEAM_SETUP_5x11 = bup.utils.deep_copy(DOUBLES_TEAM_SETUP);
@@ -4776,6 +4777,41 @@ _describe('pronunciation', function() {
 			'und zu meiner Linken,\n' +
 			'John und Jane, USA.\n' +
 			'Michael schlägt auf zu John.\n\n' +
+			'0 beide.\n' +
+			'Bitte spielen.'
+		);
+
+		const singles_s = state_after(presses, {
+			teams: [{
+				players: [{name: 'Michael', nationality: 'GER'}],
+			}, {
+				players: [{name: 'Xu Yie', nationality: 'TPE'}],
+			}],
+			is_doubles: false,
+			team_competition: false,
+			nation_competition: true,
+			counting: '3x21',
+		});
+
+		assert.strictEqual(
+			pronounce_en(singles_s),
+			'Ladies and Gentlemen:\n' +
+			'On my right,\n' +
+			'Michael, Germany,\n' +
+			'and on my left,\n' +
+			'Xu Yie, Chinese Taipei.\n' +
+			'Michael to serve.\n\n' +
+			'love all.\n' +
+			'Play.'
+		);
+		assert.strictEqual(
+			pronounce_de(singles_s),
+			'Meine Damen und Herren:\n' +
+			'Zu meiner Rechten,\n' +
+			'Michael, Germany,\n' +
+			'und zu meiner Linken,\n' +
+			'Xu Yie, Chinese Taipei.\n' +
+			'Michael schlägt auf.\n\n' +
 			'0 beide.\n' +
 			'Bitte spielen.'
 		);

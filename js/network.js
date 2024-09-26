@@ -59,7 +59,7 @@ function courts(s) {
 	if (res) {
 		res.forEach(function(c) {
 			if (!c.label && c.description) {
-				c.label = c.id + ' (' + c.description + ')';
+				c.label = (c.court_id || c.id) + ' (' + c.description + ')';
 			}
 		});
 	}
@@ -232,10 +232,30 @@ function enter_match(match) {
 	control.start_match(state, match.setup);
 }
 
+function _short_court_id(court_id) {
+	var m = /_([0-9]+)$/.exec(court_id);
+	if (m) {
+		return m[1];
+	} else {
+		return court_id;
+	}
+}
+
 function ui_render_matchlist(s, event) {
 	var container = uiu.qs('#setup_network_matches');
 	uiu.empty(container); // TODO better transition if we're updating?
-	uiu.text_qs('.setup_network_event', (event.event_name || s._('network:Matches')));
+
+	var top_label = event.event_name;
+	if (!top_label) {
+		if (s.settings && s.settings.court_id && s.settings.court_id !== 'referee') {
+			top_label = s._(
+				'network:Matches on court',
+				{court: _short_court_id(s.settings.court_id)});
+		} else {
+			top_label = s._('network:Matches');
+		}
+	}
+	uiu.text_qs('.setup_network_event', top_label);
 
 	event.matches.forEach(function(match) {
 		var btn = uiu.el(container, 'button', {
@@ -469,10 +489,10 @@ function errstate(component, err) {
 }
 
 function _set_court(s, c) {
-	s.settings.court_id = c.id;
+	s.settings.court_id = (c.court_id || c.id);
 	s.settings.court_description = c.description;
 	if (c.id !== 'referee') {
-		s.settings.displaymode_court_id = c.id;
+		s.settings.displaymode_court_id = c.court_id || c.id;
 	}
 	settings.store(s);
 	settings.update(s);
@@ -481,7 +501,7 @@ function _set_court(s, c) {
 function _court_by_id(all_courts, court_id) {
 	for (var i = 0;i < all_courts.length;i++) {
 		var c = all_courts[i];
-		if (c.id == court_id) {
+		if (c.court_id == court_id || c.id == court_id) {
 			return c;
 		}
 	}
@@ -509,7 +529,10 @@ function ui_init_court(s, hash_query) {
 	}
 	var configured = (hash_query.select_court === undefined) && all_courts.some(function(c) {
 		var desc = s.settings.court_description;
-		return (s.settings.court_id == c.id) && ((!desc && !c.description) || (desc == c.description));
+		return (
+			((s.settings.court_id == c.court_id) || (s.settings.court_id == c.id))
+			&& ((!desc && !c.description) || (desc == c.description))
+		);
 	});
 	if (! configured) {
 		// Prevent updates while we select a court
@@ -523,7 +546,7 @@ function ui_init_court(s, hash_query) {
 	all_courts.forEach(function(c) {
 		var $option = $('<option>');
 		$option.text(c.label);
-		$option.attr('value', c.id);
+		$option.attr('value', c.court_id || c.id);
 		$select.append($option);
 	});
 	$select.attr('data-auto-available', 'true');
@@ -639,6 +662,8 @@ function ui_init(s, hash_query) {
 		networks.demo = staticnet(null, 'div/demos/e_bl.json');
 	} else if (hash_query.baydemo !== undefined) {
 		networks.demo = staticnet(null, 'div/demos/bay.json');
+	} else if (hash_query.scoresheetdemo !== undefined) {
+		networks.demo = staticnet(null, 'div/demos/scoresheet.json');
 	} else if (hash_query.btsh_e !== undefined) {
 		networks.btsh = btsh(null, hash_query.btsh_e);
 	} else if (hash_query.mo !== undefined) {
@@ -790,7 +815,7 @@ function court_label(s, court_id) {
 		return court_id;
 	}
 	var cur_court = utils.find(all_courts, function(c) {
-		return c.id == court_id;
+		return (c.court_id == court_id) || (c.id == court_id);
 	});
 	if (cur_court && (cur_court.label !== undefined)) {
 		return cur_court.label;
